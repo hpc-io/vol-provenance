@@ -296,7 +296,8 @@ int main (int argc, char* argv[])
 {
     char *file_name = argv[1];
 
-    MPI_Init(&argc,&argv);
+    int provided;
+    MPI_Init_thread(&argc,&argv,MPI_THREAD_MULTIPLE,&provided);
     int my_rank, num_procs, nts, i, j, nthread, sleep_time = 0;
     MPI_Comm_rank (MPI_COMM_WORLD, &my_rank);
     MPI_Comm_size (MPI_COMM_WORLD, &num_procs);
