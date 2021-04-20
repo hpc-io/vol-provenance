@@ -312,14 +312,14 @@ static herr_t H5VL_provenance_link_copy(void *src_obj, const H5VL_loc_params_t *
 static herr_t H5VL_provenance_link_move(void *src_obj, const H5VL_loc_params_t *loc_params1, void *dst_obj, const H5VL_loc_params_t *loc_params2, hid_t lcpl_id, hid_t lapl_id, hid_t dxpl_id, void **req);
 static herr_t H5VL_provenance_link_get(void *obj, const H5VL_loc_params_t *loc_params, H5VL_link_get_t get_type, hid_t dxpl_id, void **req, va_list arguments);
 static herr_t H5VL_provenance_link_specific(void *obj, const H5VL_loc_params_t *loc_params, H5VL_link_specific_t specific_type, hid_t dxpl_id, void **req, va_list arguments);
-static herr_t H5VL_provenance_link_optional(void *obj, H5VL_attr_optional_t opt_type, hid_t dxpl_id, void **req, va_list arguments);
+static herr_t H5VL_provenance_link_optional(void *obj, const H5VL_loc_params_t *loc_params, H5VL_attr_optional_t opt_type, hid_t dxpl_id, void **req, va_list arguments);
 
 /* Object callbacks */
 static void *H5VL_provenance_object_open(void *obj, const H5VL_loc_params_t *loc_params, H5I_type_t *obj_to_open_type, hid_t dxpl_id, void **req);
 static herr_t H5VL_provenance_object_copy(void *src_obj, const H5VL_loc_params_t *src_loc_params, const char *src_name, void *dst_obj, const H5VL_loc_params_t *dst_loc_params, const char *dst_name, hid_t ocpypl_id, hid_t lcpl_id, hid_t dxpl_id, void **req);
 static herr_t H5VL_provenance_object_get(void *obj, const H5VL_loc_params_t *loc_params, H5VL_object_get_t get_type, hid_t dxpl_id, void **req, va_list arguments);
 static herr_t H5VL_provenance_object_specific(void *obj, const H5VL_loc_params_t *loc_params, H5VL_object_specific_t specific_type, hid_t dxpl_id, void **req, va_list arguments);
-static herr_t H5VL_provenance_object_optional(void *obj, H5VL_attr_optional_t opt_type, hid_t dxpl_id, void **req, va_list arguments);
+static herr_t H5VL_provenance_object_optional(void *obj, const H5VL_loc_params_t *loc_params, H5VL_attr_optional_t opt_type, hid_t dxpl_id, void **req, va_list arguments);
 
 /* Container/connector introspection callbacks */
 static herr_t H5VL_provenance_introspect_opt_query(void *obj, H5VL_subclass_t cls, int opt_type, uint64_t *flags);
@@ -4877,7 +4877,8 @@ H5VL_provenance_link_specific(void *obj, const H5VL_loc_params_t *loc_params,
  *-------------------------------------------------------------------------
  */
 static herr_t
-H5VL_provenance_link_optional(void *obj, H5VL_attr_optional_t opt_type, 
+H5VL_provenance_link_optional(void *obj, const H5VL_loc_params_t *loc_params, 
+			      H5VL_attr_optional_t opt_type, 
                               hid_t dxpl_id, void **req, va_list arguments)
 {
     unsigned long start = get_time_usec();
@@ -4891,7 +4892,7 @@ H5VL_provenance_link_optional(void *obj, H5VL_attr_optional_t opt_type,
 #endif
 
     m1 = get_time_usec();
-    ret_value = H5VLlink_optional(o->under_object, opt_type, o->under_vol_id, 
+    ret_value = H5VLlink_optional(o->under_object, loc_params, o->under_vol_id, opt_type,
                                   dxpl_id, req, arguments);
     m2 = get_time_usec();
 
@@ -5165,7 +5166,8 @@ H5VL_provenance_object_specific(void *obj, const H5VL_loc_params_t *loc_params,
  *-------------------------------------------------------------------------
  */
 static herr_t 
-H5VL_provenance_object_optional(void *obj, H5VL_attr_optional_t opt_type, 
+H5VL_provenance_object_optional(void *obj, const H5VL_loc_params_t *loc_params, 
+				H5VL_attr_optional_t opt_type, 
                                 hid_t dxpl_id, void **req, va_list arguments)
 {
     unsigned long start = get_time_usec();
@@ -5179,8 +5181,8 @@ H5VL_provenance_object_optional(void *obj, H5VL_attr_optional_t opt_type,
 #endif
 
     m1 = get_time_usec();
-    ret_value = H5VLobject_optional(o->under_object, opt_type, o->under_vol_id, 
-                                    dxpl_id, req, arguments);
+    ret_value = H5VLobject_optional(o->under_object, loc_params, o->under_vol_id, 
+	                            opt_type, dxpl_id, req, arguments);
     m2 = get_time_usec();
 
     /* Check for async request */
