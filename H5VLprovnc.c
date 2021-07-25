@@ -37,9 +37,10 @@
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
+#include <serd.h>
 
 #include "hdf5.h"
-#include "hdf5dev.h"
+//#include "hdf5dev.h"
 #include "H5VLprovnc.h"
 
 /**********/
@@ -237,6 +238,10 @@ unsigned long DT_LL_TOTAL_TIME;         //datatype
 unsigned long ATTR_LL_TOTAL_TIME;       //attribute
 static prov_helper_t* PROV_HELPER = NULL;
 
+/* Serd global variables */ 
+SerdEnv* env;    
+SerdWriter* writer;
+#define USTR(s) ((const uint8_t*)(s))
 
 //======================================= statistics =======================================
 
@@ -798,22 +803,93 @@ prov_helper_t * prov_helper_init( char* file_path, Prov_level prov_level, char* 
     if(new_helper->prov_level == File_only || new_helper->prov_level == File_and_print)
         new_helper->prov_file_handle = fopen(new_helper->prov_file_path, "a");
 
+    /* Initiate Serd writer */
+    if(new_helper->prov_file_handle != NULL)
+        writer = serd_writer_new(SERD_TURTLE, (SerdStyle)0, env, NULL, serd_file_sink, new_helper->prov_file_handle);
+    assert(writer);
+    const SerdNode prefix_uri = serd_node_from_string(SERD_URI, USTR("http://www.w3.org/2001/XMLSchema"));
+    if(!strcmp(prov_line_format, "rdf")) {
+        serd_writer_set_base_uri(writer, &prefix_uri);
+        // serd_writer_set_prefix(writer, &prefix_uri, &prefix_uri);
+    }
+    serd_writer_end_anon(writer, NULL);
+    serd_writer_get_env(writer) == env;
+
     _dic_init();
     return new_helper;
 }
 
 void prov_helper_teardown(prov_helper_t* helper){
+    char TOTAL_PROV_OVERHEAD_[256];
+    char TOTAL_NATIVE_H5_TIME_[256];
+    char PROV_WRITE_TOTAL_TIME_[256];
+    char FILE_LL_TOTAL_TIME_[256];
+    char DS_LL_TOTAL_TIME_[256];
+    char GRP_LL_TOTAL_TIME_[256];
+    char DT_LL_TOTAL_TIME_[256];
+    char ATTR_LL_TOTAL_TIME_[256];
+
+    SerdNode _TOTAL_PROV_OVERHEAD;
+    SerdNode _TOTAL_NATIVE_H5_TIME;
+    SerdNode _PROV_WRITE_TOTAL_TIME;
+    SerdNode _FILE_LL_TOTAL_TIME;
+    SerdNode _DS_LL_TOTAL_TIME;
+    SerdNode _GRP_LL_TOTAL_TIME;
+    SerdNode _DT_LL_TOTAL_TIME;
+    SerdNode _ATTR_LL_TOTAL_TIME;
+
+    SerdNode _TOTAL_PROV_OVERHEAD_;
+    SerdNode _TOTAL_NATIVE_H5_TIME_;
+    SerdNode _PROV_WRITE_TOTAL_TIME_;
+    SerdNode _FILE_LL_TOTAL_TIME_;
+    SerdNode _DS_LL_TOTAL_TIME_;
+    SerdNode _GRP_LL_TOTAL_TIME_;
+    SerdNode _DT_LL_TOTAL_TIME_;
+    SerdNode _ATTR_LL_TOTAL_TIME_;
+
+    SerdNode _predicate;
+
     if(helper){// not null
         char pline[512];
+        sprintf(TOTAL_PROV_OVERHEAD_, "%luus", TOTAL_PROV_OVERHEAD);
+        sprintf(TOTAL_NATIVE_H5_TIME_, "%luus", TOTAL_NATIVE_H5_TIME);
+        sprintf(PROV_WRITE_TOTAL_TIME_, "%luus", PROV_WRITE_TOTAL_TIME);
+        sprintf(FILE_LL_TOTAL_TIME_, "%luus", FILE_LL_TOTAL_TIME);
+        sprintf(DS_LL_TOTAL_TIME_, "%luus", DS_LL_TOTAL_TIME);
+        sprintf(GRP_LL_TOTAL_TIME_, "%luus", GRP_LL_TOTAL_TIME);
+        sprintf(DT_LL_TOTAL_TIME_, "%luus", DT_LL_TOTAL_TIME);
+        sprintf(ATTR_LL_TOTAL_TIME_, "%luus", ATTR_LL_TOTAL_TIME);
+
+        /* Serd  */ 
+        _TOTAL_PROV_OVERHEAD  = serd_node_from_string(SERD_LITERAL, USTR(TOTAL_PROV_OVERHEAD_));
+        _TOTAL_NATIVE_H5_TIME  = serd_node_from_string(SERD_LITERAL, USTR(TOTAL_NATIVE_H5_TIME_));
+        _PROV_WRITE_TOTAL_TIME  = serd_node_from_string(SERD_LITERAL, USTR(PROV_WRITE_TOTAL_TIME_));
+        _FILE_LL_TOTAL_TIME  = serd_node_from_string(SERD_LITERAL, USTR(FILE_LL_TOTAL_TIME_));
+        _DS_LL_TOTAL_TIME  = serd_node_from_string(SERD_LITERAL, USTR(DS_LL_TOTAL_TIME_));
+        _GRP_LL_TOTAL_TIME  = serd_node_from_string(SERD_LITERAL, USTR(GRP_LL_TOTAL_TIME_));
+        _DT_LL_TOTAL_TIME  = serd_node_from_string(SERD_LITERAL, USTR(DT_LL_TOTAL_TIME_));
+        _ATTR_LL_TOTAL_TIME  = serd_node_from_string(SERD_LITERAL, USTR(ATTR_LL_TOTAL_TIME_));
+
+        _TOTAL_PROV_OVERHEAD_  = serd_node_from_string(SERD_URI, USTR("TOTAL_PROV_OVERHEAD"));
+        _TOTAL_NATIVE_H5_TIME_  = serd_node_from_string(SERD_URI, USTR("TOTAL_NATIVE_H5_TIME"));
+        _PROV_WRITE_TOTAL_TIME_  = serd_node_from_string(SERD_URI, USTR("PROV_WRITE_TOTAL_TIME"));
+        _FILE_LL_TOTAL_TIME_  = serd_node_from_string(SERD_URI, USTR("FILE_LINKED_LIST_TOTAL_TIME"));
+        _DS_LL_TOTAL_TIME_  = serd_node_from_string(SERD_URI, USTR("DS_LINKED_LIST_TOTAL_TIME"));
+        _GRP_LL_TOTAL_TIME_  = serd_node_from_string(SERD_URI, USTR("GRP_LINKED_LIST_TOTAL_TIME"));
+        _DT_LL_TOTAL_TIME_  = serd_node_from_string(SERD_URI, USTR("DT_LINKED_LIST_TOTAL_TIME"));
+        _ATTR_LL_TOTAL_TIME_  = serd_node_from_string(SERD_URI, USTR("ATTR_LINKED_LIST_TOTAL_TIME"));
+
+        _predicate  = serd_node_from_string(SERD_URI, USTR("elapsed"));
+
         sprintf(pline,
-                "TOTAL_PROV_OVERHEAD %lu\n"
-                "TOTAL_NATIVE_H5_TIME %lu\n"
-                "PROV_WRITE_TOTAL_TIME %lu\n"
-                "FILE_LL_TOTAL_TIME %lu\n"
-                "DS_LL_TOTAL_TIME %lu\n"
-                "GRP_LL_TOTAL_TIME %lu\n"
-                "DT_LL_TOTAL_TIME %lu\n"
-                "ATTR_LL_TOTAL_TIME %lu\n",
+                "\nTOTAL_PROV_OVERHEAD %luus\n"
+                "TOTAL_NATIVE_H5_TIME %luus\n"
+                "PROV_WRITE_TOTAL_TIME %luus\n"
+                "FILE_LINKED_LIST_TOTAL_TIME %luus\n"
+                "DS_LINKED_LIST_TOTAL_TIME %luus\n"
+                "GRP_LINKED_LIST_TOTAL_TIME %luus\n"
+                "DT_LINKED_LIST_TOTAL_TIME %luus\n"
+                "ATTR_LINKED_LIST_TOTAL_TIME %luus\n",
                 TOTAL_PROV_OVERHEAD,
                 TOTAL_NATIVE_H5_TIME,
                 PROV_WRITE_TOTAL_TIME,
@@ -825,11 +901,49 @@ void prov_helper_teardown(prov_helper_t* helper){
 
         switch(helper->prov_level){
             case File_only:
-                fputs(pline, helper->prov_file_handle);
+                if(!strcmp(PROV_HELPER->prov_line_format, "rdf")) {
+                    assert(!serd_writer_write_statement(writer, 0, NULL, &_TOTAL_PROV_OVERHEAD_, &_predicate, 
+                        &_TOTAL_PROV_OVERHEAD, NULL, NULL));
+                    assert(!serd_writer_write_statement(writer, 0, NULL, &_TOTAL_NATIVE_H5_TIME_, &_predicate, 
+                            &_TOTAL_NATIVE_H5_TIME, NULL, NULL));
+                    assert(!serd_writer_write_statement(writer, 0, NULL, &_PROV_WRITE_TOTAL_TIME_, &_predicate, 
+                            &_PROV_WRITE_TOTAL_TIME, NULL, NULL));
+                    assert(!serd_writer_write_statement(writer, 0, NULL, &_FILE_LL_TOTAL_TIME_, &_predicate, 
+                            &_FILE_LL_TOTAL_TIME, NULL, NULL));
+                    assert(!serd_writer_write_statement(writer, 0, NULL, &_DS_LL_TOTAL_TIME_, &_predicate, 
+                            &_DS_LL_TOTAL_TIME, NULL, NULL));
+                    assert(!serd_writer_write_statement(writer, 0, NULL, &_GRP_LL_TOTAL_TIME_, &_predicate, 
+                            &_GRP_LL_TOTAL_TIME, NULL, NULL));
+                    assert(!serd_writer_write_statement(writer, 0, NULL, &_DT_LL_TOTAL_TIME_, &_predicate, 
+                            &_DT_LL_TOTAL_TIME, NULL, NULL));
+                    assert(!serd_writer_write_statement(writer, 0, NULL, &_ATTR_LL_TOTAL_TIME_, &_predicate, 
+                            &_ATTR_LL_TOTAL_TIME, NULL, NULL));
+                }
+                else
+                    fputs(pline, helper->prov_file_handle);
                 break;
 
             case File_and_print:
-                fputs(pline, helper->prov_file_handle);
+                if(!strcmp(PROV_HELPER->prov_line_format, "rdf")) {
+                    assert(!serd_writer_write_statement(writer, 0, NULL, &_TOTAL_PROV_OVERHEAD_, &_predicate, 
+                        &_TOTAL_PROV_OVERHEAD, NULL, NULL));
+                    assert(!serd_writer_write_statement(writer, 0, NULL, &_TOTAL_NATIVE_H5_TIME_, &_predicate, 
+                            &_TOTAL_NATIVE_H5_TIME, NULL, NULL));
+                    assert(!serd_writer_write_statement(writer, 0, NULL, &_PROV_WRITE_TOTAL_TIME_, &_predicate, 
+                            &_PROV_WRITE_TOTAL_TIME, NULL, NULL));
+                    assert(!serd_writer_write_statement(writer, 0, NULL, &_FILE_LL_TOTAL_TIME_, &_predicate, 
+                            &_FILE_LL_TOTAL_TIME, NULL, NULL));
+                    assert(!serd_writer_write_statement(writer, 0, NULL, &_DS_LL_TOTAL_TIME_, &_predicate, 
+                            &_DS_LL_TOTAL_TIME, NULL, NULL));
+                    assert(!serd_writer_write_statement(writer, 0, NULL, &_GRP_LL_TOTAL_TIME_, &_predicate, 
+                            &_GRP_LL_TOTAL_TIME, NULL, NULL));
+                    assert(!serd_writer_write_statement(writer, 0, NULL, &_DT_LL_TOTAL_TIME_, &_predicate, 
+                            &_DT_LL_TOTAL_TIME, NULL, NULL));
+                    assert(!serd_writer_write_statement(writer, 0, NULL, &_ATTR_LL_TOTAL_TIME_, &_predicate, 
+                            &_ATTR_LL_TOTAL_TIME, NULL, NULL));
+                }
+                else
+                    fputs(pline, helper->prov_file_handle);
                 printf("%s", pline);
                 break;
 
@@ -844,17 +958,21 @@ void prov_helper_teardown(prov_helper_t* helper){
             default:
                 break;
         }
-
+        
         if(helper->prov_level == File_only || helper->prov_level ==File_and_print){//no file
             fflush(helper->prov_file_handle);
             fclose(helper->prov_file_handle);
+
         }
         if(helper->prov_file_path)
             free(helper->prov_file_path);
         if(helper->prov_line_format)
             free(helper->prov_line_format);
-
         free(helper);
+
+        /* Free Serd writer */
+        serd_writer_free(writer);
+
         _dic_free();
     }
 }
@@ -1826,6 +1944,73 @@ void _preset_dic_print(void){
             "H5VL_provenance_request_optional",
             "H5VL_provenance_request_free",
     };
+
+    // const char* preset_dic_public[] = {
+    //         "H5VL_provenance_init",                         /* initialize   */
+    //         "H5VL_provenance_term",                         /* terminate    */
+    //         "H5VL_provenance_info_copy",                /* info copy    */
+    //         "H5VL_provenance_info_cmp",                 /* info compare */
+    //         "H5VL_provenance_info_free",                /* info free    */
+    //         "H5VL_provenance_info_to_str",              /* info to str  */
+    //         "H5VL_provenance_str_to_info",              /* str to info  */
+    //         "H5VL_provenance_get_object",               /* get_object   */
+    //         "H5VL_provenance_get_wrap_ctx",             /* get_wrap_ctx */
+    //         "H5VL_provenance_wrap_object",              /* wrap_object  */
+    //         "H5VL_provenance_unwrap_object",            /* unwrap_object  */
+    //         "H5VL_provenance_free_wrap_ctx",            /* free_wrap_ctx */
+    //         "H5Acreate2|H5Acreate_async",                       /* create. H5VL_provenance_attr_create */
+    //         "H5Aopen",                         /* Or H5Aopen_async. Open, maps to H5VL_provenance_attr_open.*/
+    //         "H5Aread",                         /* H5VL_provenance_attr_read */
+    //         "H5Awrite",                        /* H5VL_provenance_attr_write */
+    //         "H5Aget_x",                          /* H5VL_provenance_attr_get */
+    //         "H5Arename|H5Aiterate|H5Adelete|H5Aexists",                     /* specific. H5VL_provenance_attr_specific */
+    //         "H5Aiterate1",                     /* optional.H5VL_provenance_attr_optional */
+    //         "H5Aclose",                         /* close. H5VL_provenance_attr_close*/
+    //         "H5Dcreate2|H5Dcreate_async",                    /* create. H5VL_provenance_dataset_create */
+    //         "H5Dopen2|H5Dopen_async",                      /* open */
+    //         "H5Dread|H5Dread_async",                      /* read */
+    //         "H5Dwrite|H5Dwrite_async",                     /* write */
+    //         "H5Dget_x",                       /* get */
+    //         "H5Dset_extent|H5Dflush|H5Drefresh",                  /* specific */
+    //         "H5Dread_chunk|H5Dwrite_chunk",                  /* optional.H5VL_provenance_dataset_optional */
+    //         "H5Dclose|H5Dclose_async",                      /* close. Double check */
+    //         "H5Tcommit2|H5Tcommit_async",                   /* commit.H5VL_provenance_datatype_commit */
+    //         "H5Topen2|H5Topen_async",                     /* open */
+    //         "H5Tget_create_plist|H5T_construct_datatype",                      /* get_size. Double check. */
+    //         "H5Tflush|H5Trefresh",                 /* specific */
+    //         "(Not found yet) (H5T_invoke_vol_optional)",                 /* optional.Double check */
+    //         "(No H5Tclose found yet) (used by H5Topen2|H5Topen_async)",                     /* close. Double check */
+    //         "H5Fcreate|H5Fcreate_async",                       /* create */
+    //         "H5Fopen|H5Fopen_async",                         /* open */
+    //         "H5Fget_access_plist|H5Fget_obj_count|H5Fget_obj_ids|H5Fget_intent|H5Fget_fileno|H5Fget_name|H5Fget_create_plist",                          /* get */
+    //         "H5Fflush|H5Fflush_async|H5Fdelete|H5Freopen|H5Freopen_async",                     /* specific */
+    //         "H5Fget_freespace|H5Fget_filesize|H5Fget_file_image|H5Fget_mdc_config|H5Fset_mdc_config|H5Fget_mdc_hit_rate|H5Fget_mdc_size|...",                     /* optional. To be expanded. */
+    //         "H5VL_provenance_file_close",                         /* close. No public API found. Maps to internal API. */
+    //         "H5Gcreate_anon|H5Gcreate2|H5Gcreate_async",                      /* create */
+    //         "H5Gopen2|H5Gopen_async",                        /* open */
+    //         "H5Gget_create_plist|H5Gget_info|H5Gget_info_async|H5Gget_info_by_name|H5Gget_info_by_name_async|H5Gget_info_by_idx|H5Gget_info_by_idx_async",                         /* get */
+    //         "H5Gflush|H5Grefresh",                    /* specific */
+    //         "H5Giterate|H5Gget_objinfo",                    /* optional. deprec */
+    //         "H5Gcreate1|H5Gopen1|H5Fmount|H5Funmount|H5Gcreate_anon|H5Gopen2|H5Gopen_async|H5Gcreate2|H5Gcreate_async",                        /* close */
+    //         "H5Lcreate_soft|H5Lcreate_soft_async|H5Lcreate_hard|H5Lcreate_hard_async|H5Lcreate_external",                       /* create */
+    //         "H5VL_provenance_link_copy",                         /* copy */
+    //         "H5VL_provenance_link_move",                         /* move */
+    //         "H5VL_provenance_link_get",                          /* get */
+    //         "H5VL_provenance_link_specific",                     /* specific */
+    //         "H5VL_provenance_link_optional",                     /* optional */
+    //         "H5VL_provenance_object_open",                       /* open */
+    //         "H5VL_provenance_object_copy",                       /* copy */
+    //         "H5VL_provenance_object_get",                        /* get */
+    //         "H5VL_provenance_object_specific",                   /* specific */
+    //         "H5VL_provenance_object_optional",                   /* optional */
+    //         "H5VL_provenance_request_wait",                      /* wait */
+    //         "H5VL_provenance_request_notify",
+    //         "H5VL_provenance_request_cancel",
+    //         "H5VL_provenance_request_specific",
+    //         "H5VL_provenance_request_optional",
+    //         "H5VL_provenance_request_free",
+    // };
+
     int size = sizeof(preset_dic) / sizeof(const char*);
     int key_space[1000];
 
@@ -1845,11 +2030,16 @@ void _preset_dic_print(void){
 int prov_write(prov_helper_t* helper_in, const char* msg, unsigned long duration){
 //    assert(strcmp(msg, "root_file_info"));
     unsigned long start = get_time_usec();
-    const char* base = "H5VL_provenance_";
+    const char* base = "H5VL_provenance_"; //to be replace by H5
     size_t base_len;
     size_t msg_len;
     char time[64];
     char pline[512];
+    char duration_[256];
+    /* Serd  */ 
+    SerdNode _msg;
+    SerdNode _predicate;
+    SerdNode _duration;
 
     assert(helper_in);
 
@@ -1858,6 +2048,7 @@ int prov_write(prov_helper_t* helper_in, const char* msg, unsigned long duration
     /* Trimming long VOL function names */
     base_len = strlen(base);
     msg_len = strlen(msg);
+
     if(msg_len > base_len) {//strlen(H5VL_provenance_) == 16.
         size_t i = 0;
 
@@ -1866,15 +2057,32 @@ int prov_write(prov_helper_t* helper_in, const char* msg, unsigned long duration
                 break;
     }
 
-    sprintf(pline, "%s %lu\n",  msg, duration);//assume less than 64 functions
+    if(!strcmp(PROV_HELPER->prov_line_format, "rdf")) {
+        sprintf(duration_, "%lu", duration);
+        /* Serd  */ 
+        _msg  = serd_node_from_string(SERD_URI, USTR(msg));
+        _predicate  = serd_node_from_string(SERD_URI, USTR("elapsed"));
+        _duration  = serd_node_from_string(SERD_LITERAL, USTR(strcat(duration_, "us")));
+    }
+    else
+        sprintf(pline, "%s %luus\n", msg, duration);//assume less than 64 functions
+
     //printf("Func name:[%s], hash index = [%u], overhead = [%lu]\n",  msg, genHash(msg), duration);
     switch(helper_in->prov_level){
         case File_only:
-            fputs(pline, helper_in->prov_file_handle);
+            if(!strcmp(PROV_HELPER->prov_line_format, "rdf"))
+                assert(!serd_writer_write_statement(writer, 0, NULL, &_msg, &_predicate, 
+                        &_duration, NULL, NULL));
+            else
+                 fputs(pline, helper_in->prov_file_handle);               
             break;
 
         case File_and_print:
-            fputs(pline, helper_in->prov_file_handle);
+            if(!strcmp(PROV_HELPER->prov_line_format, "rdf"))
+                assert(!serd_writer_write_statement(writer, 0, NULL, &_msg, &_predicate, 
+                        &_duration, NULL, NULL));
+            else
+                fputs(pline, helper_in->prov_file_handle);                
             printf("%s", pline);
             break;
 
@@ -1894,6 +2102,7 @@ int prov_write(prov_helper_t* helper_in, const char* msg, unsigned long duration
         fputs(pline, helper_in->prov_file_handle);
     }
 //    unsigned tmp = PROV_WRITE_TOTAL_TIME;
+
     PROV_WRITE_TOTAL_TIME += (get_time_usec() - start);
 
     return 0;
@@ -2029,6 +2238,9 @@ H5VL_provenance_init(hid_t vipl_id)
     /* Shut compiler up about unused parameter */
     (void)vipl_id;
 
+    /* Initiate Serd environment */
+    env = serd_env_new(NULL);
+
     return 0;
 } /* end H5VL_provenance_init() */
 
@@ -2059,6 +2271,9 @@ H5VL_provenance_term(void)
 
     /* Reset VOL ID */
     prov_connector_id_global = H5I_INVALID_HID;
+
+    /* Free Serd env*/
+    serd_env_free(env);
 
     return 0;
 } /* end H5VL_provenance_term() */
@@ -2666,8 +2881,12 @@ H5VL_provenance_attr_create(void *obj, const H5VL_loc_params_t *loc_params,
     else
         attr = NULL;
 
-    if(o)
-        prov_write(o->prov_helper, __func__, get_time_usec() - start);
+    if(o) {
+        if(req == NULL)
+            prov_write(o->prov_helper, "H5Acreate2", get_time_usec() - start);
+        else
+            prov_write(o->prov_helper, "H5Acreate_async", get_time_usec() - start);    
+    }       
 
     TOTAL_PROV_OVERHEAD += (get_time_usec() - start - (m2 - m1));
     return (void*)attr;
@@ -2728,8 +2947,12 @@ H5VL_provenance_attr_open(void *obj, const H5VL_loc_params_t *loc_params,
     else
         attr = NULL;
 
-    if(o)
-        prov_write(o->prov_helper, __func__, get_time_usec() - start);
+    if(o) {
+        if(req == NULL)
+            prov_write(o->prov_helper, "H5Aopen", get_time_usec() - start);
+        else
+            prov_write(o->prov_helper, "H5Aopen_async", get_time_usec() - start);    
+    }  
 
     TOTAL_PROV_OVERHEAD += (get_time_usec() - start - (m2 - m1));
     return (void *)attr;
@@ -2768,8 +2991,12 @@ H5VL_provenance_attr_read(void *attr, hid_t mem_type_id, void *buf,
     if(req && *req)
         *req = H5VL_provenance_new_obj(*req, o->under_vol_id, o->prov_helper);
 
-    if(o)
-        prov_write(o->prov_helper, __func__, get_time_usec() - start);
+    if(o) {
+        if(req == NULL)
+            prov_write(o->prov_helper, "H5Aread", get_time_usec() - start);
+        else
+            prov_write(o->prov_helper, "H5Aread_async", get_time_usec() - start);    
+    }  
 
     TOTAL_PROV_OVERHEAD += (get_time_usec() - start - (m2 - m1));
     return ret_value;
@@ -2808,8 +3035,12 @@ H5VL_provenance_attr_write(void *attr, hid_t mem_type_id, const void *buf,
     if(req && *req)
         *req = H5VL_provenance_new_obj(*req, o->under_vol_id, o->prov_helper);
 
-    if(o)
-        prov_write(o->prov_helper, __func__, get_time_usec() - start);
+    if(o) {
+        if(req == NULL)
+            prov_write(o->prov_helper, "H5Awrite", get_time_usec() - start);
+        else
+            prov_write(o->prov_helper, "H5Awrite_async", get_time_usec() - start);    
+    }
 
     TOTAL_PROV_OVERHEAD += (get_time_usec() - start - (m2 - m1));
     return ret_value;
@@ -3022,8 +3253,12 @@ H5VL_provenance_dataset_create(void *obj, const H5VL_loc_params_t *loc_params,
     else
         dset = NULL;
 
-    if(o)
-        prov_write(o->prov_helper, __func__, get_time_usec() - start);
+    if(o) {
+        if(req == NULL)
+            prov_write(o->prov_helper, "H5Dcreate2", get_time_usec() - start);
+        else
+            prov_write(o->prov_helper, "H5Dcreate_async", get_time_usec() - start);    
+    } 
 
     TOTAL_PROV_OVERHEAD += (get_time_usec() - start - (m2 - m1));
     return (void *)dset;
@@ -3064,8 +3299,12 @@ H5VL_provenance_dataset_open(void *obj, const H5VL_loc_params_t *loc_params,
     else
         dset = NULL;
 
-    if(dset)
-        prov_write(dset->prov_helper, __func__, get_time_usec() - start);
+    if(dset) {
+        if(req == NULL)
+            prov_write(o->prov_helper, "H5Dopen2", get_time_usec() - start);
+        else
+            prov_write(o->prov_helper, "H5Dopen_async", get_time_usec() - start);    
+    } 
 
     TOTAL_PROV_OVERHEAD += (get_time_usec() - start - (m2 - m1));
     return (void *)dset;
@@ -3144,7 +3383,10 @@ H5VL_provenance_dataset_read(void *dset, hid_t mem_type_id, hid_t mem_space_id,
         dset_info->total_read_time += (m2 - m1);
     }
 
-    prov_write(o->prov_helper, __func__, get_time_usec() - start);
+    if(req == NULL)
+        prov_write(o->prov_helper, "H5Dread", get_time_usec() - start);
+    else
+        prov_write(o->prov_helper, "H5Dread_async", get_time_usec() - start);    
 
     TOTAL_PROV_OVERHEAD += (get_time_usec() - start - (m2 - m1));
     return ret_value;
@@ -3228,7 +3470,11 @@ H5VL_provenance_dataset_write(void *dset, hid_t mem_type_id, hid_t mem_space_id,
         dset_info->total_write_time += (m2 - m1);
     }
 
-    prov_write(o->prov_helper, __func__, get_time_usec() - start);
+
+    if(req == NULL)
+        prov_write(o->prov_helper, "H5Dwrite", get_time_usec() - start);
+    else
+        prov_write(o->prov_helper, "H5Dwrite_async", get_time_usec() - start);    
 
     TOTAL_PROV_OVERHEAD += (get_time_usec() - start - (m2 - m1));
     return ret_value;
@@ -3469,7 +3715,13 @@ H5VL_provenance_dataset_close(void *dset, hid_t dxpl_id, void **req)
         assert(dset_info);
 
         dataset_stats_prov_write(dset_info);//output stats
+
         prov_write(o->prov_helper, __func__, get_time_usec() - start);
+
+        // if(req == NULL)
+        //     prov_write(o->prov_helper, "H5Dclose", get_time_usec() - start);
+        // else
+        //     prov_write(o->prov_helper, "H5Dclose_async", get_time_usec() - start); 
 
         rm_dataset_node(o->prov_helper, o->under_object, o->under_vol_id, dset_info);
 
@@ -3516,8 +3768,13 @@ H5VL_provenance_datatype_commit(void *obj, const H5VL_loc_params_t *loc_params,
     else
         dt = NULL;
 
-    if(dt)
-        prov_write(o->prov_helper, __func__, get_time_usec() - start);
+    if(dt) {
+        if(req == NULL)
+            prov_write(o->prov_helper, "H5Tcommit2", get_time_usec() - start);
+        else
+            prov_write(o->prov_helper, "H5Tcommit_async", get_time_usec() - start);  
+        }
+        // prov_write(o->prov_helper, __func__, get_time_usec() - start);
 
     TOTAL_PROV_OVERHEAD += (get_time_usec() - start - (m2 - m1));
     return (void *)dt;
@@ -3558,8 +3815,13 @@ H5VL_provenance_datatype_open(void *obj, const H5VL_loc_params_t *loc_params,
     else
         dt = NULL;
 
-    if(dt)
-        prov_write(dt->prov_helper, __func__, get_time_usec() - start);
+    if(dt) {
+        if(req == NULL)
+            prov_write(o->prov_helper, "H5Topen2", get_time_usec() - start);
+        else
+            prov_write(o->prov_helper, "H5Topen_async", get_time_usec() - start);  
+        }
+        // prov_write(dt->prov_helper, __func__, get_time_usec() - start);
 
     TOTAL_PROV_OVERHEAD += (get_time_usec() - start - (m2 - m1));
     return (void *)dt;
@@ -3861,8 +4123,12 @@ H5VL_provenance_file_create(const char *name, unsigned flags, hid_t fcpl_id,
     else
         file = NULL;
 
-    if(file)
-        prov_write(file->prov_helper, __func__, get_time_usec() - start);
+    if(file) {
+        if(req == NULL)
+            prov_write(file->prov_helper, "H5Fcreate", get_time_usec() - start);
+        else
+            prov_write(file->prov_helper, "H5Fcreate_async", get_time_usec() - start);    
+    }       
 
     /* Close underlying FAPL */
     if(under_fapl_id > 0)
@@ -3973,8 +4239,13 @@ H5VL_provenance_file_open(const char *name, unsigned flags, hid_t fapl_id,
     else
         file = NULL;
 
-    if(file)
-        prov_write(file->prov_helper, __func__, get_time_usec() - start);
+    if(file) {
+        if(req == NULL)
+            prov_write(file->prov_helper, "H5Fopen", get_time_usec() - start);
+        else
+            prov_write(file->prov_helper, "H5Fopen_async", get_time_usec() - start);    
+    } 
+        // prov_write(file->prov_helper, __func__, get_time_usec() - start);
 
     /* Close underlying FAPL */
     if(under_fapl_id > 0)
@@ -4307,8 +4578,13 @@ H5VL_provenance_group_create(void *obj, const H5VL_loc_params_t *loc_params,
     else
         group = NULL;
 
-    if(o)
-        prov_write(o->prov_helper, __func__, get_time_usec() - start);
+    if(o) {
+        if(req == NULL)
+            prov_write(o->prov_helper, "H5Gcreate2", get_time_usec() - start);
+        else
+            prov_write(o->prov_helper, "H5Gcreate_async", get_time_usec() - start);  
+        // H5Gcreate_anon is not considered yet  
+    } 
 
     TOTAL_PROV_OVERHEAD += (get_time_usec() - start - (m2 - m1));
     return (void *)group;
@@ -4349,8 +4625,13 @@ H5VL_provenance_group_open(void *obj, const H5VL_loc_params_t *loc_params,
     else
         group = NULL;
 
-    if(o)
-        prov_write(o->prov_helper, __func__, get_time_usec() - start);
+    if(o) {
+        if(req == NULL)
+            prov_write(o->prov_helper, "H5Gopen2", get_time_usec() - start);
+        else
+            prov_write(o->prov_helper, "H5Gopen_async", get_time_usec() - start);    
+    }
+        // prov_write(o->prov_helper, __func__, get_time_usec() - start);
 
     TOTAL_PROV_OVERHEAD += (get_time_usec() - start - (m2 - m1));
     return (void *)group;
@@ -4569,6 +4850,12 @@ H5VL_provenance_group_close(void *grp, hid_t dxpl_id, void **req)
 
         grp_info = (group_prov_info_t*)o->generic_prov_info;
 
+        // if(req == NULL)
+        //     prov_write(o->prov_helper, "H5Acreate2", get_time_usec() - start);
+        // else
+        //     prov_write(o->prov_helper, "H5Acreate_async", get_time_usec() - start);
+        // this one is special which usually called at the end of H5Gopen's. To be determined later. 
+
         prov_write(o->prov_helper, __func__, get_time_usec() - start);
         group_stats_prov_write(grp_info);
 
@@ -4702,7 +4989,8 @@ H5VL_provenance_link_copy(void *src_obj, const H5VL_loc_params_t *loc_params1,
         *req = H5VL_provenance_new_obj(*req, under_vol_id, o_dst->prov_helper);
 
     if(o_dst)
-        prov_write(o_dst->prov_helper, __func__, get_time_usec() - start);
+        prov_write(o_dst->prov_helper, "H5Lcopy", get_time_usec() - start);
+        // prov_write(o_dst->prov_helper, __func__, get_time_usec() - start);
 
     TOTAL_PROV_OVERHEAD += (get_time_usec() - start - (m2 - m1));
     return ret_value;
@@ -4757,7 +5045,8 @@ H5VL_provenance_link_move(void *src_obj, const H5VL_loc_params_t *loc_params1,
         *req = H5VL_provenance_new_obj(*req, under_vol_id, o_dst->prov_helper);
 
     if(o_dst)
-        prov_write(o_dst->prov_helper, __func__, get_time_usec() - start);
+        prov_write(o_dst->prov_helper, "H5Lmove", get_time_usec() - start);
+        // prov_write(o_dst->prov_helper, __func__, get_time_usec() - start);
 
     TOTAL_PROV_OVERHEAD += (get_time_usec() - start - (m2 - m1));
     return ret_value;
@@ -4925,8 +5214,13 @@ H5VL_provenance_object_open(void *obj, const H5VL_loc_params_t *loc_params,
     else
         new_obj = NULL;
 
-    if(o)
-        prov_write(o->prov_helper, __func__, get_time_usec() - start);
+    if(o) {
+        if(req == NULL)
+            prov_write(o->prov_helper, "H5Oopen", get_time_usec() - start);
+        else
+            prov_write(o->prov_helper, "H5Oopen_async", get_time_usec() - start);    
+    }
+        // prov_write(o->prov_helper, __func__, get_time_usec() - start);
 
     TOTAL_PROV_OVERHEAD += (get_time_usec() - start - (m2 - m1));
     return (void *)new_obj;
@@ -4968,8 +5262,13 @@ H5VL_provenance_object_copy(void *src_obj, const H5VL_loc_params_t *src_loc_para
     if(req && *req)
         *req = H5VL_provenance_new_obj(*req, o_src->under_vol_id, o_dst->prov_helper);
 
-    if(o_dst)
-        prov_write(o_dst->prov_helper, __func__, get_time_usec() - start);
+    if(o_dst) {
+        if(req == NULL)
+            prov_write(o_dst->prov_helper, "H5Ocopy", get_time_usec() - start);
+        else
+            prov_write(o_dst->prov_helper, "H5Ocopy_async", get_time_usec() - start);    
+    }
+        // prov_write(o_dst->prov_helper, __func__, get_time_usec() - start);
 
     TOTAL_PROV_OVERHEAD += (get_time_usec() - start - (m2 - m1));
     return ret_value;

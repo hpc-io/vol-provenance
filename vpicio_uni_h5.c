@@ -364,8 +364,8 @@ int main (int argc, char* argv[])
     nthread  = 1;
 
     //printf("Reading env = %s\n", HDgetenv("HDF5_VOL_CONNECTOR"));
-    //fapl = H5Pcreate(H5P_FILE_ACCESS);
-    fapl = fileaccess_mod(log_file_path);
+    fapl = H5Pcreate(H5P_FILE_ACCESS);
+    // fapl = fileaccess_mod(log_file_path);
     // if(prov_enable){
     //     fapl = fileaccess_mod();
     // }else
